@@ -2,85 +2,26 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Pong - Menu Difficulté</title>
+    <title>Discord Pong Fix</title>
     <style>
-        body { 
-            margin: 0; 
-            background: #23272a; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            color: white; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            overflow: hidden; 
-        }
-
-        /* Menu de départ */
-        #menu { 
-            text-align: center; 
-            background: #2f3136; 
-            padding: 40px; 
-            border-radius: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
-            z-index: 9999; /* Priorité absolue */
-            position: relative;
-        }
-
-        h1 { margin-top: 0; color: #5865F2; font-size: 2.5rem; text-transform: uppercase; }
-        p { margin-bottom: 25px; opacity: 0.8; }
-
-        button { 
-            display: block; 
-            width: 220px; 
-            padding: 15px; 
-            margin: 12px auto; 
-            border: none; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            font-weight: bold; 
-            font-size: 18px;
-            color: white;
-            transition: all 0.2s ease;
-            pointer-events: auto !important; /* Force le clic */
-        }
-
-        button:hover { transform: translateY(-3px); filter: brightness(1.1); }
-        button:active { transform: translateY(0); }
-
-        .easy { background: #43b581; }
-        .medium { background: #faa61a; }
-        .hard { background: #f04747; }
-
-        /* Jeu */
-        canvas { 
-            border: 4px solid #5865F2; 
-            background: #000; 
-            border-radius: 8px; 
-            display: none; 
-            max-width: 95vw;
-            max-height: 70vh;
-        }
+        body { margin: 0; background: #23272a; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: white; font-family: sans-serif; overflow: hidden; }
+        #menu { text-align: center; background: #2f3136; padding: 40px; border-radius: 15px; z-index: 100; }
+        button { display: block; width: 220px; padding: 15px; margin: 12px auto; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #5865F2; color: white; }
         
-        #scoreBoard { 
-            display: none; 
-            font-size: 48px; 
-            margin-bottom: 15px; 
-            font-weight: bold; 
-            font-family: monospace;
-        }
+        /* Caché par défaut via CSS */
+        #pong, #scoreBoard { display: none; }
+        
+        canvas { border: 4px solid #5865F2; background: #000; }
+        #scoreBoard { font-size: 48px; margin-bottom: 10px; font-family: monospace; }
     </style>
 </head>
 <body>
 
     <div id="menu">
         <h1>PONG</h1>
-        <p>Choisis ta difficulté :</p>
-        <button class="easy" onclick="startGame(0.06)">FACILE</button>
-        <button class="medium" onclick="startGame(0.12)">NORMAL</button>
-        <button class="hard" onclick="startGame(0.25)">LÉGENDE</button>
+        <button onclick="startGame(0.06)">FACILE</button>
+        <button onclick="startGame(0.12)">NORMAL</button>
+        <button onclick="startGame(0.25)">LÉGENDE</button>
     </div>
 
     <div id="scoreBoard">00 | 00</div>
@@ -94,51 +35,59 @@
 
         let aiLevel = 0.12;
         let gameRunning = false;
-
-        const paddleWidth = 10, paddleHeight = 80;
-        let user = { x: 10, y: 160, score: 0, color: "#5865F2" };
-        let com = { x: 780, y: 160, score: 0, color: "#ED4245" };
+        let user = { x: 10, y: 160, score: 0 };
+        let com = { x: 780, y: 160, score: 0 };
         let ball = { x: 400, y: 200, radius: 8, speed: 7, vX: 5, vY: 5 };
 
         function startGame(level) {
             aiLevel = level;
-            menu.style.display = "none";
+            // On force l'affichage/disparition
+            menu.style.setProperty("display", "none", "important");
             canvas.style.display = "block";
             scoreBoard.style.display = "block";
-            gameRunning = true;
             
-            // On force le focus pour être sûr que Discord capte les mouvements
-            window.focus();
+            gameRunning = true;
             animate();
         }
 
-        // Contrôles Souris + Tactile
-        const updateMouse = (e) => {
+        canvas.addEventListener("mousemove", e => {
             let rect = canvas.getBoundingClientRect();
-            let root = document.documentElement;
-            let mouseY = (e.clientY || e.touches[0].clientY) - rect.top - root.scrollTop;
-            user.y = mouseY - paddleHeight/2;
-        };
-
-        canvas.addEventListener("mousemove", updateMouse);
-        canvas.addEventListener("touchmove", (e) => {
-            updateMouse(e);
-            e.preventDefault(); // Empêche de scroller la page en jouant
-        }, { passive: false });
-
-        function collision(b, p) {
-            b.top = b.y - b.radius;
-            b.bottom = b.y + b.radius;
-            b.left = b.x - b.radius;
-            b.right = b.x + b.radius;
-
-            p.top = p.y;
-            p.bottom = p.y + p.height || p.y + paddleHeight;
-            p.left = p.x;
-            p.right = p.x + p.width || p.x + paddleWidth;
-
-            return b.right > p.left && b.bottom > p.top && b.left < p.right && b.top < p.bottom;
-        }
+            user.y = e.clientY - rect.top - 40;
+        });
 
         function resetBall() {
-            ball.x = canvas.width/2;
+            ball.x = 400; ball.y = 200; ball.speed = 7; ball.vX = -ball.vX;
+        }
+
+        function update() {
+            ball.x += ball.vX; ball.y += ball.vY;
+            com.y += (ball.y - (com.y + 40)) * aiLevel;
+            if(ball.y + 8 > 400 || ball.y - 8 < 0) ball.vY = -ball.vY;
+
+            let player = (ball.x < 400) ? user : com;
+            if(ball.x + 8 > player.x && ball.x - 8 < player.x + 10 && ball.y > player.y && ball.y < player.y + 80) {
+                ball.vX = -ball.vX;
+                ball.speed += 0.5;
+            }
+
+            if(ball.x < 0) { com.score++; resetBall(); }
+            else if(ball.x > 800) { user.score++; resetBall(); }
+            scoreBoard.innerHTML = `${user.score} | ${com.score}`;
+        }
+
+        function render() {
+            ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 800, 400);
+            ctx.fillStyle = "#5865F2"; ctx.fillRect(user.x, user.y, 10, 80);
+            ctx.fillStyle = "#ED4245"; ctx.fillRect(com.x, com.y, 10, 80);
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 8, 0, Math.PI*2); ctx.fill();
+        }
+
+        function animate() {
+            if(!gameRunning) return;
+            update();
+            render();
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
