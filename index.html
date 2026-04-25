@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Discord Pong</title>
+    <style>
+        body { margin: 0; background: #2c2f33; display: flex; justify-content: center; align-items: center; height: 100vh; color: white; font-family: sans-serif; overflow: hidden; }
+        canvas { border: 2px solid #7289da; background: #000; max-width: 90vw; max-height: 80vh; }
+    </style>
+</head>
+<body>
+    <canvas id="pong" width="600" height="400"></canvas>
+    <script>
+        const canvas = document.getElementById("pong");
+        const ctx = canvas.getContext("2d");
+
+        const paddleWidth = 10, paddleHeight = 100;
+        let user = { x: 0, y: canvas.height/2 - 50, score: 0 };
+        let com = { x: canvas.width - 10, y: canvas.height/2 - 50, score: 0 };
+        let ball = { x: canvas.width/2, y: canvas.height/2, radius: 10, speed: 5, vX: 5, vY: 5 };
+
+        function drawRect(x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); }
+        function drawCircle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); }
+
+        canvas.addEventListener("mousemove", e => {
+            let rect = canvas.getBoundingClientRect();
+            user.y = e.clientY - rect.top - paddleHeight/2;
+        });
+
+        function update() {
+            ball.x += ball.vX; ball.y += ball.vY;
+            // IA simple
+            com.y += (ball.y - (com.y + paddleHeight/2)) * 0.1;
+            // Rebond murs
+            if(ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) ball.vY = -ball.vY;
+            // Rebond raquettes
+            let player = (ball.x < canvas.width/2) ? user : com;
+            if(ball.x + ball.radius > player.x && ball.x - ball.radius < player.x + paddleWidth && ball.y > player.y && ball.y < player.y + paddleHeight) {
+                ball.vX = -ball.vX;
+                ball.speed += 0.2;
+            }
+            // Score
+            if(ball.x < 0 || ball.x > canvas.width) { ball.x = canvas.width/2; ball.vX = -ball.vX; ball.speed = 5; }
+        }
+
+        function render() {
+            drawRect(0, 0, canvas.width, canvas.height, "#000");
+            drawRect(user.x, user.y, paddleWidth, paddleHeight, "#7289da");
+            drawRect(com.x, com.y, paddleWidth, paddleHeight, "#f04747");
+            drawCircle(ball.x, ball.y, ball.radius, "#fff");
+        }
+
+        function game() { update(); render(); }
+        setInterval(game, 1000/60);
+    </script>
+</body>
+</html>
