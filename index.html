@@ -2,15 +2,14 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Discord Pong Fix</title>
+    <title>Discord Pong - Sécurisé</title>
     <style>
         body { margin: 0; background: #23272a; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: white; font-family: sans-serif; overflow: hidden; }
         #menu { text-align: center; background: #2f3136; padding: 40px; border-radius: 15px; z-index: 100; }
-        button { display: block; width: 220px; padding: 15px; margin: 12px auto; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #5865F2; color: white; }
-        
-        /* Caché par défaut via CSS */
+        h1 { color: #5865F2; }
+        button { display: block; width: 220px; padding: 15px; margin: 12px auto; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #5865F2; color: white; transition: background 0.2s; }
+        button:hover { background: #4752c4; }
         #pong, #scoreBoard { display: none; }
-        
         canvas { border: 4px solid #5865F2; background: #000; }
         #scoreBoard { font-size: 48px; margin-bottom: 10px; font-family: monospace; }
     </style>
@@ -19,9 +18,10 @@
 
     <div id="menu">
         <h1>PONG</h1>
-        <button onclick="startGame(0.06)">FACILE</button>
-        <button onclick="startGame(0.12)">NORMAL</button>
-        <button onclick="startGame(0.25)">LÉGENDE</button>
+        <p>Choisis ta difficulté :</p>
+        <button id="btn-easy">FACILE</button>
+        <button id="btn-medium">NORMAL</button>
+        <button id="btn-hard">LÉGENDE</button>
     </div>
 
     <div id="scoreBoard">00 | 00</div>
@@ -39,17 +39,21 @@
         let com = { x: 780, y: 160, score: 0 };
         let ball = { x: 400, y: 200, radius: 8, speed: 7, vX: 5, vY: 5 };
 
+        // --- NOUVELLE MÉTHODE POUR LES BOUTONS (CSP Friendly) ---
+        document.getElementById("btn-easy").addEventListener("click", () => startGame(0.06));
+        document.getElementById("btn-medium").addEventListener("click", () => startGame(0.12));
+        document.getElementById("btn-hard").addEventListener("click", () => startGame(0.25));
+
         function startGame(level) {
             aiLevel = level;
-            // On force l'affichage/disparition
-            menu.style.setProperty("display", "none", "important");
+            menu.style.display = "none";
             canvas.style.display = "block";
             scoreBoard.style.display = "block";
-            
             gameRunning = true;
             animate();
         }
 
+        // --- Logique du jeu ---
         canvas.addEventListener("mousemove", e => {
             let rect = canvas.getBoundingClientRect();
             user.y = e.clientY - rect.top - 40;
