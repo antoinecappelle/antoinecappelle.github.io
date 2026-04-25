@@ -1,36 +1,89 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <title>Discord Pong - Difficulté</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Pong - Menu Difficulté</title>
     <style>
-        body { margin: 0; background: #23272a; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: white; font-family: sans-serif; overflow: hidden; }
-        canvas { border: 4px solid #5865F2; background: #000; border-radius: 8px; display: none; } /* Caché au début */
-        
-        #menu { text-align: center; background: #2f3136; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        h1 { margin-top: 0; color: #5865F2; }
-        button { 
-            display: block; width: 200px; padding: 12px; margin: 10px auto; 
-            border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px;
-            transition: transform 0.2s, background 0.2s;
+        body { 
+            margin: 0; 
+            background: #23272a; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            color: white; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            overflow: hidden; 
         }
-        button:hover { transform: scale(1.05); }
-        .easy { background: #43b581; color: white; }
-        .medium { background: #faa61a; color: white; }
-        .hard { background: #f04747; color: white; }
-        .score { display: none; font-size: 32px; margin-bottom: 10px; font-weight: bold; }
+
+        /* Menu de départ */
+        #menu { 
+            text-align: center; 
+            background: #2f3136; 
+            padding: 40px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            z-index: 9999; /* Priorité absolue */
+            position: relative;
+        }
+
+        h1 { margin-top: 0; color: #5865F2; font-size: 2.5rem; text-transform: uppercase; }
+        p { margin-bottom: 25px; opacity: 0.8; }
+
+        button { 
+            display: block; 
+            width: 220px; 
+            padding: 15px; 
+            margin: 12px auto; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 18px;
+            color: white;
+            transition: all 0.2s ease;
+            pointer-events: auto !important; /* Force le clic */
+        }
+
+        button:hover { transform: translateY(-3px); filter: brightness(1.1); }
+        button:active { transform: translateY(0); }
+
+        .easy { background: #43b581; }
+        .medium { background: #faa61a; }
+        .hard { background: #f04747; }
+
+        /* Jeu */
+        canvas { 
+            border: 4px solid #5865F2; 
+            background: #000; 
+            border-radius: 8px; 
+            display: none; 
+            max-width: 95vw;
+            max-height: 70vh;
+        }
+        
+        #scoreBoard { 
+            display: none; 
+            font-size: 48px; 
+            margin-bottom: 15px; 
+            font-weight: bold; 
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
 
     <div id="menu">
-        <h1>PONG DISCORD</h1>
+        <h1>PONG</h1>
         <p>Choisis ta difficulté :</p>
-        <button class="easy" onclick="startGame(0.06)">Facile</button>
-        <button class="medium" onclick="startGame(0.12)">Normal</button>
-        <button class="hard" onclick="startGame(0.25)">Légende</button>
+        <button class="easy" onclick="startGame(0.06)">FACILE</button>
+        <button class="medium" onclick="startGame(0.12)">NORMAL</button>
+        <button class="hard" onclick="startGame(0.25)">LÉGENDE</button>
     </div>
 
-    <div class="score" id="scoreBoard">00 | 00</div>
+    <div id="scoreBoard">00 | 00</div>
     <canvas id="pong" width="800" height="400"></canvas>
 
     <script>
@@ -39,13 +92,13 @@
         const menu = document.getElementById("menu");
         const scoreBoard = document.getElementById("scoreBoard");
 
-        let aiLevel = 0.12; // Valeur par défaut
+        let aiLevel = 0.12;
         let gameRunning = false;
 
         const paddleWidth = 10, paddleHeight = 80;
-        let user = { x: 10, y: canvas.height/2 - 40, score: 0, color: "#5865F2" };
-        let com = { x: canvas.width - 20, y: canvas.height/2 - 40, score: 0, color: "#ED4245" };
-        let ball = { x: canvas.width/2, y: canvas.height/2, radius: 8, speed: 7, vX: 5, vY: 5 };
+        let user = { x: 10, y: 160, score: 0, color: "#5865F2" };
+        let com = { x: 780, y: 160, score: 0, color: "#ED4245" };
+        let ball = { x: 400, y: 200, radius: 8, speed: 7, vX: 5, vY: 5 };
 
         function startGame(level) {
             aiLevel = level;
@@ -53,63 +106,39 @@
             canvas.style.display = "block";
             scoreBoard.style.display = "block";
             gameRunning = true;
+            
+            // On force le focus pour être sûr que Discord capte les mouvements
+            window.focus();
             animate();
         }
 
-        // --- Logique du jeu ---
-        canvas.addEventListener("mousemove", e => {
+        // Contrôles Souris + Tactile
+        const updateMouse = (e) => {
             let rect = canvas.getBoundingClientRect();
-            user.y = e.clientY - rect.top - paddleHeight/2;
-        });
+            let root = document.documentElement;
+            let mouseY = (e.clientY || e.touches[0].clientY) - rect.top - root.scrollTop;
+            user.y = mouseY - paddleHeight/2;
+        };
 
-        function update() {
-            ball.x += ball.vX;
-            ball.y += ball.vY;
+        canvas.addEventListener("mousemove", updateMouse);
+        canvas.addEventListener("touchmove", (e) => {
+            updateMouse(e);
+            e.preventDefault(); // Empêche de scroller la page en jouant
+        }, { passive: false });
 
-            // IA utilise la variable aiLevel choisie au menu
-            com.y += (ball.y - (com.y + paddleHeight/2)) * aiLevel;
+        function collision(b, p) {
+            b.top = b.y - b.radius;
+            b.bottom = b.y + b.radius;
+            b.left = b.x - b.radius;
+            b.right = b.x + b.radius;
 
-            if(ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) ball.vY = -ball.vY;
+            p.top = p.y;
+            p.bottom = p.y + p.height || p.y + paddleHeight;
+            p.left = p.x;
+            p.right = p.x + p.width || p.x + paddleWidth;
 
-            let player = (ball.x < canvas.width/2) ? user : com;
-            if(collision(ball, player)) {
-                let collidePoint = (ball.y - (player.y + paddleHeight/2)) / (paddleHeight/2);
-                let angleRad = (Math.PI/4) * collidePoint;
-                let direction = (ball.x < canvas.width/2) ? 1 : -1;
-                ball.vX = direction * ball.speed * Math.cos(angleRad);
-                ball.vY = ball.speed * Math.sin(angleRad);
-                ball.speed += 0.4;
-            }
-
-            if(ball.x - ball.radius < 0) { com.score++; resetBall(); }
-            else if(ball.x + ball.radius > canvas.width) { user.score++; resetBall(); }
-            
-            scoreBoard.innerHTML = `${user.score.toString().padStart(2, '0')} | ${com.score.toString().padStart(2, '0')}`;
+            return b.right > p.left && b.bottom > p.top && b.left < p.right && b.top < p.bottom;
         }
 
         function resetBall() {
-            ball.x = canvas.width/2; ball.y = canvas.height/2;
-            ball.speed = 7; ball.vX = -ball.vX;
-        }
-
-        function collision(b, p) {
-            return b.x + b.radius > p.x && b.x - b.radius < p.x + paddleWidth && b.y + b.radius > p.y && b.y - b.radius < p.y + paddleHeight;
-        }
-
-        function render() {
-            ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#ffffff22"; ctx.fillRect(canvas.width/2 - 1, 0, 2, canvas.height);
-            ctx.fillStyle = user.color; ctx.fillRect(user.x, user.y, paddleWidth, paddleHeight);
-            ctx.fillStyle = com.color; ctx.fillRect(com.x, com.y, paddleWidth, paddleHeight);
-            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2); ctx.fill();
-        }
-
-        function animate() {
-            if(!gameRunning) return;
-            update();
-            render();
-            requestAnimationFrame(animate);
-        }
-    </script>
-</body>
-</html>
+            ball.x = canvas.width/2;
