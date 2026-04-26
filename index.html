@@ -2,13 +2,12 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discord Pong Multiplayer</title>
     <script src="socket.io.js"></script>
     <style>
         body { margin: 0; background: #23272a; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; font-family: sans-serif; overflow: hidden; }
-        canvas { border: 4px solid #5865F2; background: #000; border-radius: 8px; display: none; cursor: none; }
-        #status { font-size: 20px; text-align: center; color: #faa61a; margin-bottom: 10px; }
+        canvas { border: 4px solid #5865F2; background: #000; border-radius: 8px; display: none; }
+        #status { font-size: 20px; color: #faa61a; margin-bottom: 10px; }
         #scoreBoard { display: none; font-size: 48px; margin-bottom: 10px; font-family: monospace; }
     </style>
 </head>
@@ -18,7 +17,6 @@
     <canvas id="pong" width="800" height="400"></canvas>
 
     <script>
-        // Configuration de la connexion via le proxy Discord
         const socket = io({ 
             path: '/mon-serveur/socket.io',
             transports: ['websocket'] 
@@ -32,12 +30,8 @@
         let myRole = null;
         let user = { y: 160, score: 0 };
         let opponent = { y: 160, score: 0 };
-        let ball = { x: 400, y: 200, radius: 8, vX: 5, vY: 5 };
+        let ball = { x: 400, y: 200, vX: 5, vY: 5 };
         let gameActive = false;
-
-        socket.on('connect', () => {
-            statusDiv.innerText = "Connecté ! Recherche d'un adversaire...";
-        });
 
         socket.on('role', (role) => {
             myRole = role;
@@ -48,16 +42,17 @@
             loop();
         });
 
-        socket.on('error', (msg) => {
-            gameActive = false;
-            statusDiv.style.display = "block";
-            statusDiv.innerText = msg;
-            statusDiv.style.color = "#f04747";
-            canvas.style.display = "none";
-        });
-
         socket.on('opponentMove', (y) => { opponent.y = y; });
-        socket.on('ballUpdate', (data) => { if(myRole === 'right') ball = data; });
+
+        socket.on('ballUpdate', (data) => {
+            if(myRole === 'right') {
+                ball.x = data.x;
+                ball.y = data.y;
+                // On synchronise les scores envoyés par le Maître (Gaucher)
+                opponent.score = data.scoreLeft; 
+                user.score = data.scoreRight;
+            }
+        });
 
         canvas.addEventListener("mousemove", e => {
             if(!gameActive) return;
@@ -68,18 +63,34 @@
 
         function update() {
             if (myRole === 'left') {
-                ball.x += ball.vX; ball.y += ball.vY;
-                // Rebond murs
+                // LE JOUEUR GAUCHE EST LE MAÎTRE DE LA PHYSIQUE
+                ball.x += ball.vX;
+                ball.y += ball.vY;
+
                 if(ball.y < 0 || ball.y > 400) ball.vY = -ball.vY;
-                // Rebond raquettes
-                if(ball.x < 25 && ball.y > user.y && ball.y < user.y + 80) ball.vX = Math.abs(ball.vX) * 1.05;
-                if(ball.x > 775 && ball.y > opponent.y && ball.y < opponent.y + 80) ball.vX = -Math.abs(ball.vX) * 1.05;
-                // Scores
+
+                // Collision raquette gauche (User)
+                if(ball.x < 25 && ball.y > user.y && ball.y < user.y + 80) {
+                    ball.vX = Math.abs(ball.vX) * 1.05;
+                }
+                // Collision raquette droite (Opponent)
+                if(ball.x > 775 && ball.y > opponent.y && ball.y < opponent.y + 80) {
+                    ball.vX = -Math.abs(ball.vX) * 1.05;
+                }
+
+                // Points
                 if (ball.x < 0) { opponent.score++; resetBall(); }
                 if (ball.x > 800) { user.score++; resetBall(); }
-                socket.emit('ballSync', ball);
+
+                // Envoyer la position et les scores à l'autre
+                socket.emit('ballSync', {
+                    x: ball.x,
+                    y: ball.y,
+                    scoreLeft: user.score,
+                    scoreRight: opponent.score
+                });
             }
-            scoreBoard.innerText = (myRole === 'left') ? `${user.score} | ${opponent.score}` : `${opponent.score} | ${user.score}`;
+            scoreBoard.innerText = `${(myRole === 'left') ? user.score : opponent.score} | ${(myRole === 'left') ? opponent.score : user.score}`;
         }
 
         function resetBall() {
@@ -92,18 +103,17 @@
             ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 800, 400);
             ctx.fillStyle = "#ffffff22"; ctx.fillRect(399, 0, 2, 400);
             
-            // Dessin raquettes
-            ctx.fillStyle = "#5865F2"; // Joueur Local
+            // Ma raquette (Bleue)
+            ctx.fillStyle = "#5865F2";
             ctx.fillRect((myRole === 'left' ? 10 : 780), user.y, 10, 80);
             
-            ctx.fillStyle = "#ED4245"; // Adversaire
+            // Raquette adverse (Rouge)
+            ctx.fillStyle = "#ED4245";
             ctx.fillRect((myRole === 'left' ? 780 : 10), opponent.y, 10, 80);
             
-            // Dessin balle
+            // Balle
             ctx.fillStyle = "#fff";
-            ctx.beginPath();
-            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, 8, 0, Math.PI*2); ctx.fill();
         }
 
         function loop() {
