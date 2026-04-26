@@ -2,43 +2,48 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>fourmi's Pong</title>
+    <title>Pong Ultra - Solo & Multi</title>
     <script src="socket.io.js"></script>
     <style>
         body { margin: 0; background: #23272a; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
-        /* Menus */
-        .menu-container { text-align: center; display: flex; flex-direction: column; gap: 15px; }
+        /* Conteneur pour tout masquer/afficher facilement */
+        .ui-layer { text-align: center; display: flex; flex-direction: column; gap: 15px; z-index: 10; }
+        
         h1 { font-size: 50px; color: #5865F2; margin-bottom: 20px; text-shadow: 2px 2px #000; }
-        button { padding: 15px 40px; font-size: 20px; cursor: pointer; border: none; border-radius: 5px; background: #5865F2; color: white; transition: 0.2s; }
+        button { padding: 15px 40px; font-size: 20px; cursor: pointer; border: none; border-radius: 5px; background: #5865F2; color: white; transition: 0.2s; min-width: 250px; }
         button:hover { background: #4752c4; transform: scale(1.05); }
+        
         .btn-easy { background: #43b581; }
         .btn-hard { background: #f04747; }
+        .btn-back { background: #747f8d; margin-top: 10px; }
         
         /* Jeu */
         canvas { border: 4px solid #5865F2; background: #000; border-radius: 8px; display: none; }
-        #status { font-size: 20px; color: #faa61a; margin-top: 20px; display: none; }
+        #status { font-size: 20px; color: #faa61a; margin-top: 20px; display: none; font-weight: bold; }
         #scoreBoard { display: none; font-size: 48px; margin-bottom: 10px; font-family: monospace; }
+        
+        /* Utilitaires */
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div id="mainMenu" class="menu-container">
+    <div id="mainMenu" class="ui-layer">
         <h1>PONG MULTI</h1>
-        <button onclick="showDifficulty()">MODE SOLO</button>
+        <button onclick="goToDifficulty()">MODE SOLO</button>
         <button onclick="startMulti()">MULTIJOUEUR</button>
     </div>
 
-    <div id="difficultyMenu" class="menu-container hidden">
+    <div id="difficultyMenu" class="ui-layer hidden">
         <h1>DIFFICULTÉ</h1>
         <button class="btn-easy" onclick="startSolo(0.05)">FACILE</button>
         <button onclick="startSolo(0.08)">NORMAL</button>
         <button class="btn-hard" onclick="startSolo(0.15)">EXPERT</button>
-        <button style="background:gray; margin-top:10px;" onclick="backToMenu()">RETOUR</button>
+        <button class="btn-back" onclick="goToMain()">RETOUR</button>
     </div>
 
-    <div id="status">Connexion...</div>
+    <div id="status">Initialisation...</div>
     <div id="scoreBoard">0 | 0</div>
     <canvas id="pong" width="800" height="400"></canvas>
 
@@ -51,7 +56,7 @@
         const scoreBoard = document.getElementById("scoreBoard");
 
         let socket;
-        let mode = null; // 'solo' ou 'multi'
+        let mode = null;
         let myRole = 'left'; 
         let user = { y: 160, score: 0 };
         let opponent = { y: 160, score: 0 };
@@ -59,21 +64,31 @@
         let gameActive = false;
         let cpuSpeed = 0.08;
 
-        // --- NAVIGATION ---
-        function showDifficulty() {
+        // --- NAVIGATION (FONCTIONS CORRIGÉES) ---
+        function hideAllMenus() {
+            mainMenu.classList.add("hidden");
+            diffMenu.classList.add("hidden");
+            console.log("Menus masqués");
+        }
+
+        function goToDifficulty() {
+            console.log("Vers menu difficulté");
             mainMenu.classList.add("hidden");
             diffMenu.classList.remove("hidden");
         }
 
-        function backToMenu() {
-            location.reload(); // Plus simple pour reset tous les états
+        function goToMain() {
+            diffMenu.classList.add("hidden");
+            mainMenu.classList.remove("hidden");
         }
 
         // --- LOGIQUE SOLO ---
         function startSolo(difficulty) {
+            console.log("Démarrage Solo - Diff : " + difficulty);
             mode = 'solo';
             cpuSpeed = difficulty;
-            diffMenu.classList.add("hidden");
+            hideAllMenus();
+            
             canvas.style.display = "block";
             scoreBoard.style.display = "block";
             gameActive = true;
@@ -82,16 +97,19 @@
 
         // --- LOGIQUE MULTI ---
         function startMulti() {
+            console.log("Démarrage Multi - Connexion...");
             mode = 'multi';
-            mainMenu.classList.add("hidden");
+            hideAllMenus();
+            
             statusDiv.style.display = "block";
             statusDiv.innerText = "Connexion au serveur...";
 
+            // On initialise socket.io
             socket = io({ path: '/mon-serveur/socket.io', transports: ['websocket'] });
 
             socket.on('role', (role) => {
                 myRole = role;
-                statusDiv.innerText = "Attente d'un adversaire...";
+                statusDiv.innerText = "Recherche d'un adversaire...";
             });
 
             socket.on('playerJoined', () => {
@@ -127,18 +145,12 @@
 
         function update() {
             if (mode === 'solo') {
-                // Mouvement Balle
                 ball.x += ball.vX; ball.y += ball.vY;
                 if(ball.y < 0 || ball.y > 392) ball.vY = -ball.vY;
-
-                // IA (Opponent)
                 let targetY = ball.y - 40;
                 opponent.y += (targetY - opponent.y) * cpuSpeed;
-
-                // Collisions
                 if(ball.x < 30 && ball.x > 10 && ball.y > user.y - 5 && ball.y < user.y + 85) ball.vX = Math.abs(ball.vX) * 1.05;
                 if(ball.x > 760 && ball.x < 785 && ball.y > opponent.y - 5 && ball.y < opponent.y + 85) ball.vX = -Math.abs(ball.vX) * 1.05;
-
                 if (ball.x < 0) { opponent.score++; resetBall(); }
                 if (ball.x > 800) { user.score++; resetBall(); }
             } 
