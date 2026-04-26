@@ -2,32 +2,23 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Discord Pong Multiplayer - Proxy Mode</title>
-    
+    <title>Discord Pong Multi-Lobby</title>
     <script src="socket.io.js"></script>
-    
     <style>
         body { margin: 0; background: #23272a; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; font-family: sans-serif; overflow: hidden; }
         canvas { border: 4px solid #5865F2; background: #000; border-radius: 8px; display: none; }
-        #status { font-size: 20px; margin-bottom: 20px; color: #faa61a; text-align: center; }
+        #status { font-size: 20px; margin-bottom: 20px; color: #faa61a; text-align: center; max-width: 80% }
         #scoreBoard { display: none; font-size: 48px; margin-bottom: 10px; font-family: monospace; }
-        .loading-dots:after { content: '.'; animation: dots 1s steps(5, end) infinite;}
-        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
     </style>
 </head>
 <body>
-    <div id="status">Initialisation via Proxy Discord<span class="loading-dots"></span></div>
+    <div id="status">Connexion au serveur... (Render peut mettre 1 min à se réveiller)</div>
     <div id="scoreBoard">00 | 00</div>
     <canvas id="pong" width="800" height="400"></canvas>
 
     <script>
-        /**
-         * CONNEXION VIA PROXY
-         * Si tu as mappé /mon-serveur vers ton-URL-render
-         */
-        const socket = io({
-            path: '/mon-serveur/socket.io'
-        });
+        // Connexion via le Proxy Discord configuré sur /mon-serveur
+        const socket = io({ path: '/mon-serveur/socket.io' });
         
         const canvas = document.getElementById("pong");
         const ctx = canvas.getContext("2d");
@@ -38,42 +29,46 @@
         let user = { y: 160, score: 0 };
         let opponent = { y: 160, score: 0 };
         let ball = { x: 400, y: 200, radius: 8, vX: 5, vY: 5 };
+        let gameRunning = false;
 
         socket.on('connect', () => {
-            statusDiv.innerText = "Connecté au Proxy ! En attente d'adversaire...";
+            statusDiv.innerText = "Connecté ! Recherche d'un partenaire...";
             statusDiv.style.color = "#43b581";
-        });
-
-        socket.on('connect_error', (err) => {
-            statusDiv.innerText = "Erreur de connexion : " + err.message;
-            statusDiv.style.color = "#f04747";
         });
 
         socket.on('role', (role) => {
             myRole = role;
-            statusDiv.innerText = "Joueur " + (role === 'left' ? "GAUCHE" : "DROITE") + " prêt !";
+            statusDiv.style.display = "none"; 
             canvas.style.display = "block";
             scoreBoard.style.display = "block";
+            gameRunning = true;
             loop();
         });
 
+        socket.on('error', (msg) => {
+            gameRunning = false;
+            statusDiv.style.display = "block";
+            statusDiv.innerText = msg;
+            statusDiv.style.color = "#f04747";
+            canvas.style.display = "none";
+        });
+
         socket.on('opponentMove', (y) => { opponent.y = y; });
-        socket.on('ballUpdate', (ballData) => { if (myRole === 'right') ball = ballData; });
+        socket.on('ballUpdate', (data) => { if(myRole === 'right') ball = data; });
 
         canvas.addEventListener("mousemove", e => {
+            if(!gameRunning) return;
             let rect = canvas.getBoundingClientRect();
             user.y = e.clientY - rect.top - 40;
             socket.emit('move', user.y);
         });
 
         function update() {
-            if (!myRole) return;
             if (myRole === 'left') {
-                ball.x += ball.vX;
-                ball.y += ball.vY;
+                ball.x += ball.vX; ball.y += ball.vY;
                 if(ball.y < 0 || ball.y > 400) ball.vY = -ball.vY;
-                if(ball.x < 20 && ball.y > user.y && ball.y < user.y + 80) ball.vX = Math.abs(ball.vX) * 1.1;
-                if(ball.x > 780 && ball.y > opponent.y && ball.y < opponent.y + 80) ball.vX = -Math.abs(ball.vX) * 1.1;
+                if(ball.x < 20 && ball.y > user.y && ball.y < user.y + 80) ball.vX = Math.abs(ball.vX) * 1.05;
+                if(ball.x > 780 && ball.y > opponent.y && ball.y < opponent.y + 80) ball.vX = -Math.abs(ball.vX) * 1.05;
                 if (ball.x < 0) { opponent.score++; resetBall(); }
                 if (ball.x > 800) { user.score++; resetBall(); }
                 socket.emit('ballSync', ball);
@@ -81,19 +76,23 @@
             scoreBoard.innerHTML = (myRole === 'left') ? `${user.score} | ${opponent.score}` : `${opponent.score} | ${user.score}`;
         }
 
-        function resetBall() { ball.x = 400; ball.y = 200; ball.vX = -ball.vX; }
+        function resetBall() { ball.x = 400; ball.y = 200; ball.vX = (Math.random() > 0.5 ? 5 : -5); }
 
         function render() {
             ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 800, 400);
-            ctx.fillStyle = "#ffffff22"; ctx.fillRect(399, 0, 2, 400);
-            ctx.fillStyle = "#5865F2"; 
+            ctx.fillStyle = "#ffffff11"; ctx.fillRect(399, 0, 2, 400);
+            
+            ctx.fillStyle = "#5865F2"; // Bleu pour soi
             ctx.fillRect((myRole === 'left' ? 10 : 780), user.y, 10, 80);
-            ctx.fillStyle = "#ED4245"; 
+            
+            ctx.fillStyle = "#ED4245"; // Rouge pour l'autre
             ctx.fillRect((myRole === 'left' ? 780 : 10), opponent.y, 10, 80);
-            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2); ctx.fill();
+            
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 8, 0, Math.PI*2); ctx.fill();
         }
 
         function loop() {
+            if(!gameRunning) return;
             update();
             render();
             requestAnimationFrame(loop);
