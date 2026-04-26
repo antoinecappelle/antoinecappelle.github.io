@@ -12,7 +12,7 @@
     </style>
 </head>
 <body>
-    <div id="status">Connexion au serveur...</div>
+    <div id="status">Initialisation...</div>
     <div id="scoreBoard">0 | 0</div>
     <canvas id="pong" width="800" height="400"></canvas>
 
@@ -33,6 +33,10 @@
         let ball = { x: 400, y: 200, vX: 5, vY: 5 };
         let gameActive = false;
 
+        socket.on('connect', () => {
+            statusDiv.innerText = "Connecté au Proxy ! Recherche d'adversaire...";
+        });
+
         socket.on('role', (role) => {
             myRole = role;
             statusDiv.style.display = "none";
@@ -42,47 +46,54 @@
             loop();
         });
 
-        socket.on('opponentMove', (y) => { opponent.y = y; });
+        // RECEPTION : On met à jour la raquette adverse
+        socket.on('opponentMove', (y) => { 
+            opponent.y = y; 
+        });
 
+        // RECEPTION : Le joueur 2 (right) reçoit tout du joueur 1 (left)
         socket.on('ballUpdate', (data) => {
             if(myRole === 'right') {
                 ball.x = data.x;
                 ball.y = data.y;
-                // On synchronise les scores envoyés par le Maître (Gaucher)
-                opponent.score = data.scoreLeft; 
                 user.score = data.scoreRight;
+                opponent.score = data.scoreLeft;
             }
         });
 
         canvas.addEventListener("mousemove", e => {
             if(!gameActive) return;
             let rect = canvas.getBoundingClientRect();
-            user.y = e.clientY - rect.top - 40;
+            let mouseY = e.clientY - rect.top - 40;
+            user.y = mouseY;
             socket.emit('move', user.y);
         });
 
         function update() {
             if (myRole === 'left') {
-                // LE JOUEUR GAUCHE EST LE MAÎTRE DE LA PHYSIQUE
                 ball.x += ball.vX;
                 ball.y += ball.vY;
 
-                if(ball.y < 0 || ball.y > 400) ball.vY = -ball.vY;
+                // Rebond murs
+                if(ball.y < 0 || ball.y > 392) ball.vY = -ball.vY;
 
-                // Collision raquette gauche (User)
-                if(ball.x < 25 && ball.y > user.y && ball.y < user.y + 80) {
+                // Collision raquette GAUCHE (Moi si je suis left)
+                if(ball.x < 30 && ball.x > 10 && ball.y > user.y - 5 && ball.y < user.y + 85) {
                     ball.vX = Math.abs(ball.vX) * 1.05;
+                    ball.x = 30; // Anti-blocage
                 }
-                // Collision raquette droite (Opponent)
-                if(ball.x > 775 && ball.y > opponent.y && ball.y < opponent.y + 80) {
+                
+                // Collision raquette DROITE (L'autre)
+                if(ball.x > 760 && ball.x < 785 && ball.y > opponent.y - 5 && ball.y < opponent.y + 85) {
                     ball.vX = -Math.abs(ball.vX) * 1.05;
+                    ball.x = 760; // Anti-blocage
                 }
 
                 // Points
                 if (ball.x < 0) { opponent.score++; resetBall(); }
                 if (ball.x > 800) { user.score++; resetBall(); }
 
-                // Envoyer la position et les scores à l'autre
+                // Synchro vers le joueur 2
                 socket.emit('ballSync', {
                     x: ball.x,
                     y: ball.y,
@@ -90,24 +101,24 @@
                     scoreRight: opponent.score
                 });
             }
-            scoreBoard.innerText = `${(myRole === 'left') ? user.score : opponent.score} | ${(myRole === 'left') ? opponent.score : user.score}`;
+            scoreBoard.innerText = (myRole === 'left') ? `${user.score} | ${opponent.score}` : `${opponent.score} | ${user.score}`;
         }
 
         function resetBall() {
             ball.x = 400; ball.y = 200;
             ball.vX = (Math.random() > 0.5 ? 5 : -5);
-            ball.vY = (Math.random() > 0.5 ? 5 : -5);
+            ball.vY = (Math.random() > 0.5 ? 4 : -4);
         }
 
         function render() {
             ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 800, 400);
-            ctx.fillStyle = "#ffffff22"; ctx.fillRect(399, 0, 2, 400);
+            ctx.fillStyle = "#ffffff11"; ctx.fillRect(399, 0, 2, 400);
             
-            // Ma raquette (Bleue)
+            // Raquette locale (Bleu Discord)
             ctx.fillStyle = "#5865F2";
             ctx.fillRect((myRole === 'left' ? 10 : 780), user.y, 10, 80);
             
-            // Raquette adverse (Rouge)
+            // Raquette distante (Rouge)
             ctx.fillStyle = "#ED4245";
             ctx.fillRect((myRole === 'left' ? 780 : 10), opponent.y, 10, 80);
             
