@@ -62,7 +62,25 @@
                 document.getElementById("s-data").innerText = dataCount;
             }
         });
+        
+        socket.on('opponentLeft', (msg) => {
+            gameActive = false; // Arrête la logique de mouvement
+            canvas.style.display = "none";
+            scoreBoard.style.display = "none";
+            statusDiv.style.display = "block";
+            statusDiv.innerText = msg;
+            statusDiv.style.color = "#ED4245"; // Rouge
+            
+            // Optionnel : recharger la page après 3 secondes pour rejouer
+            setTimeout(() => { location.reload(); }, 3000);
+        });
 
+        socket.on('error', (msg) => {
+            gameActive = false;
+            statusDiv.style.display = "block";
+            statusDiv.innerText = msg;
+            canvas.style.display = "none";
+        });
         canvas.addEventListener("mousemove", e => {
             if(!gameActive) return;
             let rect = canvas.getBoundingClientRect();
