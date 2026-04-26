@@ -37,13 +37,17 @@
         });
 
         socket.on('role', (role) => {
-            myRole = role;
-            statusDiv.style.display = "none"; 
-            canvas.style.display = "block";
-            scoreBoard.style.display = "block";
-            gameRunning = true;
-            loop();
-        });
+    console.log("ROLE REÇU : " + role);
+    myRole = role;
+    
+    // ON FORCE TOUT L'AFFICHAGE ICI
+    document.getElementById("status").style.display = "none";
+    document.getElementById("scoreBoard").style.display = "block";
+    document.getElementById("pong").style.display = "block";
+    
+    gameRunning = true;
+    loop();
+});
 
         socket.on('error', (msg) => {
             gameRunning = false;
